@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GymHub.Server/GymHub.Server.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GymHub.Server.Tests/GymHub.Server.Tests.csproj" />
+  </Folder>
+</Solution>
