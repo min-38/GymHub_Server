@@ -9,13 +9,28 @@ namespace GymHub.Server.Tests;
 public sealed class GymHubMigrationsTests
 {
     [Fact]
-    public void InitialCreateMigrationIsRegistered()
+    public void MigrationsAreRegisteredInOrder()
     {
         using var context = new GymHubDbContextFactory().CreateDbContext([]);
 
-        var migration = Assert.Single(context.Database.GetMigrations());
+        var migrations = context.Database.GetMigrations().ToList();
 
-        Assert.EndsWith("InitialCreate", migration);
+        Assert.Equal(2, migrations.Count);
+        Assert.EndsWith("InitialCreate", migrations[0]);
+        Assert.EndsWith("AddUsersAndUserScoping", migrations[1]);
+    }
+
+    [Fact]
+    public void MigrationScriptCreatesUsersTableAndUserScoping()
+    {
+        using var context = new GymHubDbContextFactory().CreateDbContext([]);
+        var migrator = context.GetInfrastructure().GetRequiredService<IMigrator>();
+
+        var sql = migrator.GenerateScript();
+
+        Assert.Contains("CREATE TABLE users", sql);
+        Assert.Contains("user_id", sql);
+        Assert.Contains("idx_sessions_user_date", sql);
     }
 
     [Fact]

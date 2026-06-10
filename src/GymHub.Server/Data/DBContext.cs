@@ -4,6 +4,8 @@ namespace GymHub.Server.Data;
 
 public sealed class GymHubDbContext(DbContextOptions<GymHubDbContext> options) : DbContext(options)
 {
+    public DbSet<User> Users => Set<User>();
+
     public DbSet<Exercise> Exercises => Set<Exercise>();
 
     public DbSet<WorkoutSession> WorkoutSessions => Set<WorkoutSession>();
@@ -26,6 +28,20 @@ public sealed class GymHubDbContext(DbContextOptions<GymHubDbContext> options) :
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.ToTable("users");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").UseIdentityByDefaultColumn();
+            entity.Property(e => e.Email).HasColumnName("email").IsRequired();
+            entity.Property(e => e.GoogleSub).HasColumnName("google_sub");
+            entity.Property(e => e.PasswordHash).HasColumnName("password_hash");
+            entity.Property(e => e.DisplayName).HasColumnName("display_name").HasDefaultValue("").IsRequired();
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.HasIndex(e => e.Email).IsUnique().HasDatabaseName("idx_users_email");
+            entity.HasIndex(e => e.GoogleSub).IsUnique().HasDatabaseName("idx_users_google_sub");
+        });
+
         modelBuilder.Entity<Exercise>(entity =>
         {
             entity.ToTable("exercises");
@@ -57,10 +73,12 @@ public sealed class GymHubDbContext(DbContextOptions<GymHubDbContext> options) :
             entity.ToTable("workout_sessions");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id").UseIdentityByDefaultColumn();
+            entity.Property(e => e.UserId).HasColumnName("user_id");
             entity.Property(e => e.Date).HasColumnName("date").HasColumnType("date");
             entity.Property(e => e.Note).HasColumnName("note");
             entity.Property(e => e.DurationSec).HasColumnName("duration_sec").HasDefaultValue(0);
-            entity.HasIndex(e => e.Date).HasDatabaseName("idx_sessions_date");
+            entity.HasOne<User>().WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => new { e.UserId, e.Date }).IsUnique().HasDatabaseName("idx_sessions_user_date");
         });
 
         modelBuilder.Entity<WorkoutEntry>(entity =>
@@ -104,6 +122,7 @@ public sealed class GymHubDbContext(DbContextOptions<GymHubDbContext> options) :
             entity.ToTable("body_measurements");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id").UseIdentityByDefaultColumn();
+            entity.Property(e => e.UserId).HasColumnName("user_id");
             entity.Property(e => e.Date).HasColumnName("date").HasColumnType("date");
             entity.Property(e => e.Weight).HasColumnName("weight");
             entity.Property(e => e.Height).HasColumnName("height");
@@ -113,7 +132,8 @@ public sealed class GymHubDbContext(DbContextOptions<GymHubDbContext> options) :
             entity.Property(e => e.Arm).HasColumnName("arm");
             entity.Property(e => e.Thigh).HasColumnName("thigh");
             entity.Property(e => e.Note).HasColumnName("note");
-            entity.HasIndex(e => e.Date).HasDatabaseName("idx_body_date");
+            entity.HasOne<User>().WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => new { e.UserId, e.Date }).HasDatabaseName("idx_body_user_date");
         });
 
         modelBuilder.Entity<InbodyRecord>(entity =>
@@ -121,6 +141,7 @@ public sealed class GymHubDbContext(DbContextOptions<GymHubDbContext> options) :
             entity.ToTable("inbody_records");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id").UseIdentityByDefaultColumn();
+            entity.Property(e => e.UserId).HasColumnName("user_id");
             entity.Property(e => e.Date).HasColumnName("date").HasColumnType("date");
             entity.Property(e => e.Weight).HasColumnName("weight");
             entity.Property(e => e.BodyFatPercentage).HasColumnName("body_fat_percentage");
@@ -130,7 +151,8 @@ public sealed class GymHubDbContext(DbContextOptions<GymHubDbContext> options) :
             entity.Property(e => e.Bmr).HasColumnName("bmr");
             entity.Property(e => e.VisceralFat).HasColumnName("visceral_fat");
             entity.Property(e => e.Note).HasColumnName("note");
-            entity.HasIndex(e => e.Date).HasDatabaseName("idx_inbody_date");
+            entity.HasOne<User>().WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => new { e.UserId, e.Date }).HasDatabaseName("idx_inbody_user_date");
         });
 
         modelBuilder.Entity<AppMeta>(entity =>
@@ -154,9 +176,12 @@ public sealed class GymHubDbContext(DbContextOptions<GymHubDbContext> options) :
             entity.ToTable("routines");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id").UseIdentityByDefaultColumn();
+            entity.Property(e => e.UserId).HasColumnName("user_id");
             entity.Property(e => e.Name).HasColumnName("name").IsRequired();
             entity.Property(e => e.Note).HasColumnName("note");
             entity.Property(e => e.OrderIndex).HasColumnName("order_index").HasDefaultValue(0);
+            entity.HasOne<User>().WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.UserId).HasDatabaseName("idx_routines_user");
         });
 
         modelBuilder.Entity<RoutineExercise>(entity =>
@@ -200,9 +225,20 @@ public sealed class Exercise
     public DateTimeOffset? GifCachedAt { get; set; }
 }
 
+public sealed class User
+{
+    public int Id { get; init; }
+    public required string Email { get; set; }
+    public string? GoogleSub { get; set; }
+    public string? PasswordHash { get; set; }
+    public string DisplayName { get; set; } = "";
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
 public sealed class WorkoutSession
 {
     public int Id { get; init; }
+    public int UserId { get; set; }
     public DateOnly Date { get; set; }
     public string? Note { get; set; }
     public int DurationSec { get; set; }
@@ -235,6 +271,7 @@ public sealed class WorkoutSet
 public sealed class BodyMeasurement
 {
     public int Id { get; init; }
+    public int UserId { get; set; }
     public DateOnly Date { get; set; }
     public double Weight { get; set; }
     public double? Height { get; set; }
@@ -249,6 +286,7 @@ public sealed class BodyMeasurement
 public sealed class InbodyRecord
 {
     public int Id { get; init; }
+    public int UserId { get; set; }
     public DateOnly Date { get; set; }
     public double Weight { get; set; }
     public double? BodyFatPercentage { get; set; }
@@ -275,6 +313,7 @@ public sealed class ExerciseNameOverride
 public sealed class Routine
 {
     public int Id { get; init; }
+    public int UserId { get; set; }
     public required string Name { get; set; }
     public string? Note { get; set; }
     public int OrderIndex { get; set; }
