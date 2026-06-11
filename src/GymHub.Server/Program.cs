@@ -3,6 +3,7 @@ using GymHub.Server.Auth;
 using GymHub.Server.Body;
 using GymHub.Server.Data;
 using GymHub.Server.Exercises;
+using GymHub.Server.Routines;
 using GymHub.Server.Workouts;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +26,7 @@ builder.Services.AddScoped<ExerciseService>();
 builder.Services.AddScoped<WorkoutService>();
 builder.Services.AddScoped<BodyService>();
 builder.Services.AddScoped<ProfileService>();
+builder.Services.AddScoped<RoutineService>();
 
 var authOptions = builder.Configuration.GetSection(AuthOptions.SectionName).Get<AuthOptions>() ?? new AuthOptions();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
