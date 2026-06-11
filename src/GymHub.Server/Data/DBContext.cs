@@ -18,6 +18,8 @@ public sealed class GymHubDbContext(DbContextOptions<GymHubDbContext> options) :
 
     public DbSet<InbodyRecord> InbodyRecords => Set<InbodyRecord>();
 
+    public DbSet<Profile> Profiles => Set<Profile>();
+
     public DbSet<AppMeta> AppMeta => Set<AppMeta>();
 
     public DbSet<ExerciseNameOverride> ExerciseNameOverrides => Set<ExerciseNameOverride>();
@@ -153,6 +155,19 @@ public sealed class GymHubDbContext(DbContextOptions<GymHubDbContext> options) :
             entity.Property(e => e.Note).HasColumnName("note");
             entity.HasOne<User>().WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => new { e.UserId, e.Date }).HasDatabaseName("idx_inbody_user_date");
+        });
+
+        modelBuilder.Entity<Profile>(entity =>
+        {
+            entity.ToTable("profiles");
+            entity.HasKey(e => e.UserId);
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.Name).HasColumnName("name");
+            entity.Property(e => e.Gender).HasColumnName("gender");
+            entity.Property(e => e.BirthDate).HasColumnName("birth_date").HasColumnType("date");
+            entity.Property(e => e.Height).HasColumnName("height");
+            entity.Property(e => e.Weight).HasColumnName("weight");
+            entity.HasOne<User>().WithOne().HasForeignKey<Profile>(e => e.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<AppMeta>(entity =>
@@ -296,6 +311,22 @@ public sealed class InbodyRecord
     public double? Bmr { get; set; }
     public int? VisceralFat { get; set; }
     public string? Note { get; set; }
+}
+
+public sealed class Profile
+{
+    public int UserId { get; init; }
+    public string? Name { get; set; }
+
+    /// <summary>'male' | 'female' | null</summary>
+    public string? Gender { get; set; }
+    public DateOnly? BirthDate { get; set; }
+
+    /// <summary>cm</summary>
+    public double? Height { get; set; }
+
+    /// <summary>kg</summary>
+    public double? Weight { get; set; }
 }
 
 public sealed class AppMeta
