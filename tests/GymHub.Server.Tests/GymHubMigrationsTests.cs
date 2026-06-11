@@ -15,9 +15,10 @@ public sealed class GymHubMigrationsTests
 
         var migrations = context.Database.GetMigrations().ToList();
 
-        Assert.Equal(2, migrations.Count);
+        Assert.Equal(3, migrations.Count);
         Assert.EndsWith("InitialCreate", migrations[0]);
         Assert.EndsWith("AddUsersAndUserScoping", migrations[1]);
+        Assert.EndsWith("AddProfiles", migrations[2]);
     }
 
     [Fact]
@@ -48,6 +49,7 @@ public sealed class GymHubMigrationsTests
         Assert.Contains("CREATE TABLE body_measurements", sql);
         Assert.Contains("CREATE TABLE inbody_records", sql);
         Assert.Contains("CREATE TABLE app_meta", sql);
+        Assert.Contains("CREATE TABLE profiles", sql);
         Assert.Contains("CREATE TABLE exercise_name_overrides", sql);
         Assert.Contains("CREATE TABLE routines", sql);
         Assert.Contains("CREATE TABLE routine_exercises", sql);
