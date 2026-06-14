@@ -117,6 +117,64 @@ public sealed class StatsServiceTests
         Assert.Equal(0, res.Current.Single(c => c.Category == "등").Volume);
     }
 
+    [Fact]
+    public async Task EntryStatsJoinBodyPartAndSecondaryMusclesAndAggregateVolume()
+    {
+        await using var db = NewDb();
+        db.Exercises.Add(new Exercise
+        {
+            Id = "ex1",
+            Name = "Bench",
+            BodyPart = "chest",
+            Target = "pectorals",
+            Equipment = "barbell",
+            GifUrl = "",
+            SecondaryMuscles = "[\"triceps\",\"deltoids\"]",
+        });
+        Seed(db, sessionId: 1, UserId, Today, "ex1", "Bench", "pectorals", (50, 2), (60, 1));
+        await db.SaveChangesAsync();
+        var service = new StatsService(db);
+
+        var res = await service.GetEntryStatsAsync(UserId, default);
+
+        var stat = Assert.Single(res);
+        Assert.Equal("chest", stat.BodyPart);
+        Assert.Equal(["triceps", "deltoids"], stat.SecondaryMuscles);
+        Assert.Equal(160, stat.Volume); // 50*2 + 60*1
+        Assert.Equal(2, stat.Sets);
+    }
+
+    [Fact]
+    public async Task ExerciseProgressReturnsTopWeightAndVolumePerEntry()
+    {
+        await using var db = NewDb();
+        Seed(db, sessionId: 1, UserId, Today, "ex1", "Squat", "quads", (100, 5), (120, 1));
+        await db.SaveChangesAsync();
+        var service = new StatsService(db);
+
+        var res = await service.GetExerciseProgressAsync(UserId, default);
+
+        var stat = Assert.Single(res);
+        Assert.Equal(120, stat.TopWeight);
+        Assert.Equal(620, stat.Volume); // 100*5 + 120*1
+        Assert.Equal(2, stat.Sets);
+    }
+
+    [Fact]
+    public async Task SessionDurationsReturnDateAndDurationScopedToUser()
+    {
+        await using var db = NewDb();
+        db.WorkoutSessions.Add(new WorkoutSession { Id = 1, UserId = UserId, Date = Today, DurationSec = 3600 });
+        db.WorkoutSessions.Add(new WorkoutSession { Id = 2, UserId = OtherUserId, Date = Today, DurationSec = 999 });
+        await db.SaveChangesAsync();
+        var service = new StatsService(db);
+
+        var res = await service.GetSessionDurationsAsync(UserId, default);
+
+        var stat = Assert.Single(res);
+        Assert.Equal(3600, stat.DurationSec);
+    }
+
     private static void Seed(
         GymHubDbContext db, int sessionId, int userId, DateOnly date,
         string exerciseId, string exerciseName, string target, params (double Weight, int Reps)[] sets)

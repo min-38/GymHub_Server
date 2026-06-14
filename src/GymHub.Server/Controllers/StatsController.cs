@@ -36,5 +36,20 @@ public sealed class StatsController(StatsService stats) : ControllerBase
         string exerciseId, CancellationToken ct) =>
         Ok(await stats.GetExerciseAnalysisAsync(UserId, exerciseId, ct));
 
+    /// <summary>세션별 (날짜, 운동 시간). 앱 분석 화면이 클라에서 집계한다.</summary>
+    [HttpGet("session-durations")]
+    public async Task<ActionResult<List<SessionDurationStat>>> SessionDurations(CancellationToken ct) =>
+        Ok(await stats.GetSessionDurationsAsync(UserId, ct));
+
+    /// <summary>종목별 raw 집계(부위·보조근육 포함). 앱이 클라에서 부위 밸런스/피로도를 계산한다.</summary>
+    [HttpGet("entry-stats")]
+    public async Task<ActionResult<List<EntryStat>>> EntryStats(CancellationToken ct) =>
+        Ok(await stats.GetEntryStatsAsync(UserId, ct));
+
+    /// <summary>종목별 raw 최고무게/볼륨/세트. 앱이 클라에서 성장 추이를 계산한다.</summary>
+    [HttpGet("exercise-progress")]
+    public async Task<ActionResult<List<ExerciseProgressStat>>> ExerciseProgress(CancellationToken ct) =>
+        Ok(await stats.GetExerciseProgressAsync(UserId, ct));
+
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
 }

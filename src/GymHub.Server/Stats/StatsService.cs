@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using GymHub.Server.Data;
 using Microsoft.EntityFrameworkCore;
@@ -116,7 +117,94 @@ public sealed partial class StatsService(GymHubDbContext db)
             history);
     }
 
+    // ----- raw per-entry feeds (the app aggregates these client-side) -----
+
+    /// <summary>(date, durationSec) for every session. Powers the recent-7-days duration view.</summary>
+    public async Task<List<SessionDurationStat>> GetSessionDurationsAsync(int userId, CancellationToken ct) =>
+        await db.WorkoutSessions.AsNoTracking()
+            .Where(s => s.UserId == userId)
+            .OrderByDescending(s => s.Date)
+            .Select(s => new SessionDurationStat(s.Date, s.DurationSec))
+            .ToListAsync(ct);
+
+    /// <summary>Per-entry stats with body part + secondary muscles (joined from the exercise catalog).</summary>
+    public async Task<List<EntryStat>> GetEntryStatsAsync(int userId, CancellationToken ct)
+    {
+        var entries = await LoadEntriesWithSetsAsync(userId, ct);
+        var meta = await LoadExerciseMetaAsync(entries.Select(e => e.ExerciseId), ct);
+
+        return entries
+            .Select(e =>
+            {
+                meta.TryGetValue(e.ExerciseId, out var m);
+                return new EntryStat(
+                    e.Date, e.ExerciseName, m.BodyPart ?? "", e.Target,
+                    ParseMuscles(m.SecondaryMuscles),
+                    Math.Round(EntryVolume(e), 1),
+                    e.Sets.Count);
+            })
+            .ToList();
+    }
+
+    /// <summary>Per-entry top weight/volume/sets for the per-exercise growth view.</summary>
+    public async Task<List<ExerciseProgressStat>> GetExerciseProgressAsync(int userId, CancellationToken ct)
+    {
+        var entries = await LoadEntriesWithSetsAsync(userId, ct);
+        return entries
+            .Select(e => new ExerciseProgressStat(
+                e.Date, e.ExerciseId, e.ExerciseName, e.Target,
+                e.Sets.Count == 0 ? 0 : e.Sets.Max(s => s.Weight),
+                Math.Round(EntryVolume(e), 1),
+                e.Sets.Count))
+            .ToList();
+    }
+
     // ----- helpers -----
+
+    private async Task<List<EntryRow>> LoadEntriesWithSetsAsync(int userId, CancellationToken ct) =>
+        await db.WorkoutEntries.AsNoTracking()
+            .Where(e => e.Session!.UserId == userId)
+            .Select(e => new EntryRow(
+                e.Session!.Date, e.ExerciseId, e.ExerciseName, e.Target,
+                e.Sets.Select(s => new SetWeightReps(s.Weight, s.Reps)).ToList()))
+            .ToListAsync(ct);
+
+    private async Task<Dictionary<string, (string? BodyPart, string? SecondaryMuscles)>> LoadExerciseMetaAsync(
+        IEnumerable<string> exerciseIds, CancellationToken ct)
+    {
+        var ids = exerciseIds.Distinct().ToList();
+        var rows = await db.Exercises.AsNoTracking()
+            .Where(x => ids.Contains(x.Id))
+            .Select(x => new { x.Id, x.BodyPart, x.SecondaryMuscles })
+            .ToListAsync(ct);
+        return rows.ToDictionary(x => x.Id, x => ((string?)x.BodyPart, x.SecondaryMuscles));
+    }
+
+    private static double EntryVolume(EntryRow e) =>
+        IsVolumeExcluded(e.ExerciseId, e.ExerciseName) ? 0 : e.Sets.Sum(s => s.Weight * s.Reps);
+
+    /// <summary>Decodes a stored secondary-muscles value (JSON array, or newline-separated fallback).</summary>
+    private static List<string> ParseMuscles(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return [];
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(raw) ?? [];
+        }
+        catch (JsonException)
+        {
+            return raw.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        }
+    }
+
+    private sealed record EntryRow(DateOnly Date, string ExerciseId, string ExerciseName, string Target, List<SetWeightReps> Sets);
+
+    private sealed record SetWeightReps(double Weight, int Reps);
+
 
     /// <summary>Per-day exponential decay applied to volume when scoring fatigue.</summary>
     private const double FatigueDecay = 0.8;
@@ -236,3 +324,23 @@ public sealed record ExerciseAnalysisResponse(
     List<ExercisePoint> History);
 
 public sealed record ExercisePoint(DateOnly Date, double TopWeight, double Volume, double EstimatedOneRm);
+
+public sealed record SessionDurationStat(DateOnly Date, int DurationSec);
+
+public sealed record EntryStat(
+    DateOnly Date,
+    string ExerciseName,
+    string BodyPart,
+    string Target,
+    List<string> SecondaryMuscles,
+    double Volume,
+    int Sets);
+
+public sealed record ExerciseProgressStat(
+    DateOnly Date,
+    string ExerciseId,
+    string ExerciseName,
+    string Target,
+    double TopWeight,
+    double Volume,
+    int Sets);
