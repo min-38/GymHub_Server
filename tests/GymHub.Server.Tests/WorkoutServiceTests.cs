@@ -209,6 +209,27 @@ public sealed class WorkoutServiceTests
     }
 
     [Fact]
+    public async Task SetEntryRestStoresAndClearsAndRespectsOwnership()
+    {
+        await using var db = NewDb();
+        db.WorkoutSessions.Add(new WorkoutSession { Id = 1, UserId = UserId, Date = new DateOnly(2026, 6, 1) });
+        db.WorkoutEntries.Add(new WorkoutEntry { Id = 1, SessionId = 1, ExerciseId = "ex1", ExerciseName = "Bench", Target = "chest", OrderIndex = 0 });
+        await db.SaveChangesAsync();
+        var service = new WorkoutService(db);
+
+        Assert.False(await service.SetEntryRestAsync(OtherUserId, 1, 90, default));
+
+        Assert.True(await service.SetEntryRestAsync(UserId, 1, 90, default));
+        Assert.Equal(90, (await db.WorkoutEntries.FindAsync(1))!.RestSec);
+        var loaded = await service.GetEntriesOfDateAsync(UserId, new DateOnly(2026, 6, 1), default);
+        Assert.Equal(90, loaded.Single().RestSec);
+
+        // null clears it back to "use global default"
+        Assert.True(await service.SetEntryRestAsync(UserId, 1, null, default));
+        Assert.Null((await db.WorkoutEntries.FindAsync(1))!.RestSec);
+    }
+
+    [Fact]
     public async Task ReorderEntriesUpdatesOrderIndex()
     {
         await using var db = NewDb();

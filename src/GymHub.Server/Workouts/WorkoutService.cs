@@ -175,6 +175,23 @@ public sealed class WorkoutService(GymHubDbContext db)
         return true;
     }
 
+    /// <summary>
+    /// Sets the entry's per-exercise rest seconds (null = fall back to the app's global default).
+    /// Returns false if not found/owned.
+    /// </summary>
+    public async Task<bool> SetEntryRestAsync(int userId, int entryId, int? restSec, CancellationToken ct)
+    {
+        var entry = await db.WorkoutEntries.FirstOrDefaultAsync(e => e.Id == entryId && e.Session!.UserId == userId, ct);
+        if (entry is null)
+        {
+            return false;
+        }
+
+        entry.RestSec = restSec;
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
     /// <summary>Re-numbers entry order_index to match the given order. Returns false if not found/owned.</summary>
     public async Task<bool> ReorderEntriesAsync(int userId, int sessionId, List<int> orderedEntryIds, CancellationToken ct)
     {
@@ -313,6 +330,7 @@ public sealed class WorkoutService(GymHubDbContext db)
                 e.ExerciseName,
                 e.Target,
                 e.OrderIndex,
+                e.RestSec,
                 e.Sets.OrderBy(s => s.SetNumber)
                     .Select(s => new WorkoutSetDto(s.Id, s.EntryId, s.SetNumber, s.Weight, s.Reps, s.Completed))
                     .ToList()))
@@ -378,6 +396,7 @@ public sealed record WorkoutEntryDto(
     string ExerciseName,
     string Target,
     int OrderIndex,
+    int? RestSec,
     List<WorkoutSetDto> Sets);
 
 public sealed record WorkoutSetDto(int Id, int EntryId, int SetNumber, double Weight, int Reps, bool Completed);

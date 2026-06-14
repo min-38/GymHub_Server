@@ -63,6 +63,11 @@ public sealed class WorkoutsController(WorkoutService workouts) : ControllerBase
         return entry is null ? NotFound() : Ok(entry);
     }
 
+    /// <summary>종목별 휴식 시간(초)을 설정한다. restSec=null이면 전역 기본값을 따른다.</summary>
+    [HttpPatch("entries/{entryId}")]
+    public async Task<IActionResult> UpdateEntry(int entryId, [FromBody] UpdateEntryRequest request, CancellationToken ct) =>
+        await workouts.SetEntryRestAsync(UserId, entryId, request.RestSec, ct) ? NoContent() : NotFound();
+
     /// <summary>종목을 삭제한다 (세트는 cascade로 함께 삭제).</summary>
     [HttpDelete("entries/{entryId}")]
     public async Task<IActionResult> DeleteEntry(int entryId, CancellationToken ct) =>
@@ -112,6 +117,8 @@ public sealed record EnsureSessionRequest(DateOnly Date);
 public sealed record UpdateSessionRequest(string? Note, int? DurationSec);
 
 public sealed record AddExerciseRequest(string ExerciseId, string ExerciseName, string Target);
+
+public sealed record UpdateEntryRequest(int? RestSec);
 
 public sealed record ReorderEntriesRequest(List<int> OrderedEntryIds);
 

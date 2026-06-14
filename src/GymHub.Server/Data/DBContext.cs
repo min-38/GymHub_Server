@@ -93,6 +93,7 @@ public sealed class GymHubDbContext(DbContextOptions<GymHubDbContext> options) :
             entity.Property(e => e.ExerciseName).HasColumnName("exercise_name").IsRequired();
             entity.Property(e => e.Target).HasColumnName("target").IsRequired();
             entity.Property(e => e.OrderIndex).HasColumnName("order_index");
+            entity.Property(e => e.RestSec).HasColumnName("rest_sec");
             entity.HasOne(e => e.Session)
                 .WithMany(e => e.Entries)
                 .HasForeignKey(e => e.SessionId)
@@ -268,6 +269,9 @@ public sealed class WorkoutEntry
     public required string ExerciseName { get; set; }
     public required string Target { get; set; }
     public int OrderIndex { get; set; }
+
+    /// <summary>Per-exercise rest seconds. Null = use the app's global default.</summary>
+    public int? RestSec { get; set; }
     public WorkoutSession? Session { get; set; }
     public List<WorkoutSet> Sets { get; } = [];
 }
