@@ -54,6 +54,15 @@ public sealed class WorkoutsController(WorkoutService workouts) : ControllerBase
         return entry is null ? NotFound() : Ok(entry);
     }
 
+    /// <summary>entry의 종목(운동 id/이름/부위)을 교체한다. 세트·순서는 유지.</summary>
+    [HttpPut("entries/{entryId}/exercise")]
+    public async Task<ActionResult<WorkoutEntryDto>> ChangeEntryExercise(
+        int entryId, [FromBody] AddExerciseRequest request, CancellationToken ct)
+    {
+        var entry = await workouts.ChangeEntryExerciseAsync(UserId, entryId, request.ExerciseId, request.ExerciseName, request.Target, ct);
+        return entry is null ? NotFound() : Ok(entry);
+    }
+
     /// <summary>종목을 삭제한다 (세트는 cascade로 함께 삭제).</summary>
     [HttpDelete("entries/{entryId}")]
     public async Task<IActionResult> DeleteEntry(int entryId, CancellationToken ct) =>

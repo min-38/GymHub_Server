@@ -184,6 +184,31 @@ public sealed class WorkoutServiceTests
     }
 
     [Fact]
+    public async Task ChangeEntryExerciseSwapsIdentityAndKeepsSetsAndOrder()
+    {
+        await using var db = NewDb();
+        db.WorkoutSessions.Add(new WorkoutSession { Id = 1, UserId = UserId, Date = new DateOnly(2026, 6, 1) });
+        db.WorkoutEntries.Add(new WorkoutEntry { Id = 1, SessionId = 1, ExerciseId = "ex1", ExerciseName = "Bench", Target = "chest", OrderIndex = 2 });
+        db.WorkoutSets.AddRange(
+            new WorkoutSet { Id = 1, EntryId = 1, SetNumber = 1, Weight = 60, Reps = 10 },
+            new WorkoutSet { Id = 2, EntryId = 1, SetNumber = 2, Weight = 65, Reps = 8 });
+        await db.SaveChangesAsync();
+        var service = new WorkoutService(db);
+
+        Assert.Null(await service.ChangeEntryExerciseAsync(OtherUserId, 1, "ex2", "Row", "back", default));
+
+        var updated = await service.ChangeEntryExerciseAsync(UserId, 1, "ex2", "Barbell Row", "back", default);
+        Assert.NotNull(updated);
+        Assert.Equal("ex2", updated!.ExerciseId);
+        Assert.Equal("Barbell Row", updated.ExerciseName);
+        Assert.Equal("back", updated.Target);
+        Assert.Equal(2, updated.OrderIndex);
+        Assert.Equal(2, updated.Sets.Count);
+        Assert.Equal(60, updated.Sets[0].Weight);
+        Assert.Equal(8, updated.Sets[1].Reps);
+    }
+
+    [Fact]
     public async Task ReorderEntriesUpdatesOrderIndex()
     {
         await using var db = NewDb();

@@ -141,6 +141,27 @@ public sealed class WorkoutService(GymHubDbContext db)
         return (await LoadEntriesAsync(sessionId, ct)).First(e => e.Id == entry.Id);
     }
 
+    /// <summary>
+    /// Replaces an entry's exercise identity (id/name/target), keeping its sets and order.
+    /// Returns the updated entry, or null if not found/owned.
+    /// </summary>
+    public async Task<WorkoutEntryDto?> ChangeEntryExerciseAsync(
+        int userId, int entryId, string exerciseId, string exerciseName, string target, CancellationToken ct)
+    {
+        var entry = await db.WorkoutEntries.FirstOrDefaultAsync(e => e.Id == entryId && e.Session!.UserId == userId, ct);
+        if (entry is null)
+        {
+            return null;
+        }
+
+        entry.ExerciseId = exerciseId;
+        entry.ExerciseName = exerciseName;
+        entry.Target = target;
+        await db.SaveChangesAsync(ct);
+
+        return (await LoadEntriesAsync(entry.SessionId, ct)).First(e => e.Id == entry.Id);
+    }
+
     public async Task<bool> DeleteEntryAsync(int userId, int entryId, CancellationToken ct)
     {
         var entry = await db.WorkoutEntries.FirstOrDefaultAsync(e => e.Id == entryId && e.Session!.UserId == userId, ct);
