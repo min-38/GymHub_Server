@@ -230,6 +230,27 @@ public sealed class WorkoutServiceTests
     }
 
     [Fact]
+    public async Task SetEntrySupersetStoresAndClearsAndRespectsOwnership()
+    {
+        await using var db = NewDb();
+        db.WorkoutSessions.Add(new WorkoutSession { Id = 1, UserId = UserId, Date = new DateOnly(2026, 6, 1) });
+        db.WorkoutEntries.Add(new WorkoutEntry { Id = 1, SessionId = 1, ExerciseId = "ex1", ExerciseName = "Bench", Target = "chest", OrderIndex = 0 });
+        await db.SaveChangesAsync();
+        var service = new WorkoutService(db);
+
+        Assert.False(await service.SetEntrySupersetAsync(OtherUserId, 1, 7, default));
+
+        Assert.True(await service.SetEntrySupersetAsync(UserId, 1, 7, default));
+        Assert.Equal(7, (await db.WorkoutEntries.FindAsync(1))!.SupersetGroup);
+        var loaded = await service.GetEntriesOfDateAsync(UserId, new DateOnly(2026, 6, 1), default);
+        Assert.Equal(7, loaded.Single().SupersetGroup);
+
+        // null removes the entry from its superset group
+        Assert.True(await service.SetEntrySupersetAsync(UserId, 1, null, default));
+        Assert.Null((await db.WorkoutEntries.FindAsync(1))!.SupersetGroup);
+    }
+
+    [Fact]
     public async Task ReorderEntriesUpdatesOrderIndex()
     {
         await using var db = NewDb();

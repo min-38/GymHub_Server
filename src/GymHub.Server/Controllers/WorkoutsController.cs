@@ -68,6 +68,11 @@ public sealed class WorkoutsController(WorkoutService workouts) : ControllerBase
     public async Task<IActionResult> UpdateEntry(int entryId, [FromBody] UpdateEntryRequest request, CancellationToken ct) =>
         await workouts.SetEntryRestAsync(UserId, entryId, request.RestSec, ct) ? NoContent() : NotFound();
 
+    /// <summary>entry의 슈퍼세트 그룹을 설정한다. supersetGroup=null이면 그룹에서 해제.</summary>
+    [HttpPatch("entries/{entryId}/superset")]
+    public async Task<IActionResult> UpdateEntrySuperset(int entryId, [FromBody] UpdateSupersetRequest request, CancellationToken ct) =>
+        await workouts.SetEntrySupersetAsync(UserId, entryId, request.SupersetGroup, ct) ? NoContent() : NotFound();
+
     /// <summary>종목을 삭제한다 (세트는 cascade로 함께 삭제).</summary>
     [HttpDelete("entries/{entryId}")]
     public async Task<IActionResult> DeleteEntry(int entryId, CancellationToken ct) =>
@@ -119,6 +124,8 @@ public sealed record UpdateSessionRequest(string? Note, int? DurationSec);
 public sealed record AddExerciseRequest(string ExerciseId, string ExerciseName, string Target);
 
 public sealed record UpdateEntryRequest(int? RestSec);
+
+public sealed record UpdateSupersetRequest(int? SupersetGroup);
 
 public sealed record ReorderEntriesRequest(List<int> OrderedEntryIds);
 

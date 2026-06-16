@@ -192,6 +192,20 @@ public sealed class WorkoutService(GymHubDbContext db)
         return true;
     }
 
+    /// <summary>Sets (or clears with null) the superset group of an entry. Returns false if not found/owned.</summary>
+    public async Task<bool> SetEntrySupersetAsync(int userId, int entryId, int? supersetGroup, CancellationToken ct)
+    {
+        var entry = await db.WorkoutEntries.FirstOrDefaultAsync(e => e.Id == entryId && e.Session!.UserId == userId, ct);
+        if (entry is null)
+        {
+            return false;
+        }
+
+        entry.SupersetGroup = supersetGroup;
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
     /// <summary>Re-numbers entry order_index to match the given order. Returns false if not found/owned.</summary>
     public async Task<bool> ReorderEntriesAsync(int userId, int sessionId, List<int> orderedEntryIds, CancellationToken ct)
     {
@@ -331,6 +345,7 @@ public sealed class WorkoutService(GymHubDbContext db)
                 e.Target,
                 e.OrderIndex,
                 e.RestSec,
+                e.SupersetGroup,
                 e.Sets.OrderBy(s => s.SetNumber)
                     .Select(s => new WorkoutSetDto(s.Id, s.EntryId, s.SetNumber, s.Weight, s.Reps, s.Completed))
                     .ToList()))
@@ -397,6 +412,7 @@ public sealed record WorkoutEntryDto(
     string Target,
     int OrderIndex,
     int? RestSec,
+    int? SupersetGroup,
     List<WorkoutSetDto> Sets);
 
 public sealed record WorkoutSetDto(int Id, int EntryId, int SetNumber, double Weight, int Reps, bool Completed);

@@ -94,6 +94,7 @@ public sealed class GymHubDbContext(DbContextOptions<GymHubDbContext> options) :
             entity.Property(e => e.Target).HasColumnName("target").IsRequired();
             entity.Property(e => e.OrderIndex).HasColumnName("order_index");
             entity.Property(e => e.RestSec).HasColumnName("rest_sec");
+            entity.Property(e => e.SupersetGroup).HasColumnName("superset_group");
             entity.HasOne(e => e.Session)
                 .WithMany(e => e.Entries)
                 .HasForeignKey(e => e.SessionId)
@@ -272,6 +273,9 @@ public sealed class WorkoutEntry
 
     /// <summary>Per-exercise rest seconds. Null = use the app's global default.</summary>
     public int? RestSec { get; set; }
+
+    /// <summary>Superset group id. Entries sharing a value form one superset. Null = standalone.</summary>
+    public int? SupersetGroup { get; set; }
     public WorkoutSession? Session { get; set; }
     public List<WorkoutSet> Sets { get; } = [];
 }
