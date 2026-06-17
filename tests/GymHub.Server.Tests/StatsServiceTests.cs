@@ -75,7 +75,7 @@ public sealed class StatsServiceTests
         await db.SaveChangesAsync();
         var service = new StatsService(db);
 
-        var res = await service.GetWeeklyTrendAsync(UserId, Today, default);
+        var res = await service.GetWeeklyTrendAsync(UserId, Today, "week", default);
 
         Assert.Equal(7, res.Days.Count);
         var monday = res.Days.Single(d => d.Weekday == 1);
@@ -83,6 +83,24 @@ public sealed class StatsServiceTests
         Assert.Equal(30, monday.LastWeek.Volume);
         Assert.Equal(50, res.ThisWeek.Volume);
         Assert.Equal(30, res.LastWeek.Volume);
+    }
+
+    [Fact]
+    public async Task MonthlyTrendComparesThisMonthVsLastMonthTotalsWithoutDays()
+    {
+        await using var db = NewDb();
+        // 이번 달(6월) 6/3·6/20 합 80kg, 지난 달(5월) 5/10 30kg.
+        Seed(db, sessionId: 1, UserId, new DateOnly(2026, 6, 3), "ex1", "Bench", "pectorals", (50, 1));
+        Seed(db, sessionId: 2, UserId, new DateOnly(2026, 6, 20), "ex1", "Bench", "pectorals", (30, 1));
+        Seed(db, sessionId: 3, UserId, new DateOnly(2026, 5, 10), "ex1", "Bench", "pectorals", (30, 1));
+        await db.SaveChangesAsync();
+        var service = new StatsService(db);
+
+        var res = await service.GetWeeklyTrendAsync(UserId, Today, "month", default);
+
+        Assert.Empty(res.Days); // 월간은 요일별 버킷 없음(전월 대비 총합만)
+        Assert.Equal(80, res.ThisWeek.Volume); // 이번 달 총합
+        Assert.Equal(30, res.LastWeek.Volume); // 지난 달 총합
     }
 
     [Fact]

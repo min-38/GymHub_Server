@@ -24,11 +24,14 @@ public sealed class StatsController(StatsService stats) : ControllerBase
         [FromQuery] DateOnly? today, CancellationToken ct) =>
         Ok(await stats.GetFatigueAsync(UserId, today ?? Today, ct));
 
-    /// <summary>이번 주 vs 지난 주 요일별 볼륨/세트/Reps 추이 + 총합. (App #13)</summary>
+    /// <summary>
+    /// 추이 비교. period=week(기본): 이번 주 vs 지난 주 요일별 + 총합. period=month: 이번 달 vs
+    /// 지난 달 총합(요일별 days 없음, 전월 대비). (App #13)
+    /// </summary>
     [HttpGet("weekly-trend")]
     public async Task<ActionResult<WeeklyTrendResponse>> WeeklyTrend(
-        [FromQuery] DateOnly? today, CancellationToken ct) =>
-        Ok(await stats.GetWeeklyTrendAsync(UserId, today ?? Today, ct));
+        [FromQuery] DateOnly? today, [FromQuery] string period = "week", CancellationToken ct = default) =>
+        Ok(await stats.GetWeeklyTrendAsync(UserId, today ?? Today, period, ct));
 
     /// <summary>종목별 분석: 예상 1RM·최고무게·최대볼륨 + 세션별 과부하 추이. (App #17)</summary>
     [HttpGet("exercise/{exerciseId}")]
