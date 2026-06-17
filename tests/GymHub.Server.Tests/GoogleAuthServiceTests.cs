@@ -17,7 +17,7 @@ public sealed class GoogleAuthServiceTests
         await db.SaveChangesAsync();
         var service = NewService(db);
 
-        var user = await service.ResolveUserAsync("google-sub-1", "real@gmail.com", "Real Name", default);
+        var user = await service.ResolveUserAsync("google-sub-1", "real@gmail.com", "Real Name", true, default);
 
         Assert.Equal(1, user.Id);
         Assert.Equal("google-sub-1", user.GoogleSub);
@@ -34,7 +34,7 @@ public sealed class GoogleAuthServiceTests
         await db.SaveChangesAsync();
         var service = NewService(db);
 
-        var user = await service.ResolveUserAsync("sub-5", "x@y.com", "X", default);
+        var user = await service.ResolveUserAsync("sub-5", "x@y.com", "X", true, default);
 
         Assert.Equal(5, user.Id);
         Assert.Equal(1, await db.Users.CountAsync());
@@ -46,7 +46,7 @@ public sealed class GoogleAuthServiceTests
         await using var db = NewDb();
         var service = NewService(db);
 
-        var user = await service.ResolveUserAsync("sub-new", "new@gmail.com", "New", default);
+        var user = await service.ResolveUserAsync("sub-new", "new@gmail.com", "New", true, default);
 
         Assert.Equal("sub-new", user.GoogleSub);
         Assert.Equal("new@gmail.com", user.Email);
@@ -63,9 +63,28 @@ public sealed class GoogleAuthServiceTests
         await db.SaveChangesAsync();
         var service = NewService(db);
 
-        var user = await service.ResolveUserAsync("other-sub", "other@gmail.com", "Other", default);
+        var user = await service.ResolveUserAsync("other-sub", "other@gmail.com", "Other", true, default);
 
         Assert.NotEqual(1, user.Id);
+        Assert.Equal(2, await db.Users.CountAsync());
+    }
+
+    [Fact]
+    public async Task UnverifiedEmailDoesNotClaimLegacyOwnerOrLinkByEmail()
+    {
+        await using var db = NewDb();
+        db.Users.Add(new User { Id = 1, Email = LegacyOwnerEmail, GoogleSub = null, DisplayName = "Owner" });
+        await db.SaveChangesAsync();
+        var service = NewService(db);
+
+        // emailVerified: false — the legacy owner row must NOT be claimed; a separate user is created.
+        var user = await service.ResolveUserAsync("attacker-sub", "owner@gmail.com", "Attacker", false, default);
+
+        Assert.NotEqual(1, user.Id);
+        Assert.Equal("attacker-sub", user.GoogleSub);
+        var legacyOwner = await db.Users.FirstAsync(u => u.Id == 1);
+        Assert.Null(legacyOwner.GoogleSub);
+        Assert.Equal(LegacyOwnerEmail, legacyOwner.Email);
         Assert.Equal(2, await db.Users.CountAsync());
     }
 

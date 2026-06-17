@@ -69,6 +69,14 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+// HS256 needs a 256-bit (32-byte) key. Fail fast rather than silently issuing tokens that a
+// missing/weak key would make forgeable. (The migrate path above only needs the DB config.)
+if (Encoding.UTF8.GetByteCount(authOptions.JwtKey) < 32)
+{
+    throw new InvalidOperationException(
+        "Auth:JwtKey must be configured with at least 32 bytes (256 bits) for HS256 token signing.");
+}
+
 app.UseHttpsRedirection();
 
 app.UseAuthentication();

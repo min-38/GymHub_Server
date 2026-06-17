@@ -36,11 +36,12 @@ public sealed class GoogleAuthService(
             return null;
         }
 
-        var user = await ResolveUserAsync(payload.Subject, payload.Email, payload.Name, ct);
+        var user = await ResolveUserAsync(payload.Subject, payload.Email, payload.Name, payload.EmailVerified, ct);
         return new AuthResult(tokenService.CreateToken(user), user);
     }
 
-    internal async Task<User> ResolveUserAsync(string subject, string email, string? name, CancellationToken ct)
+    internal async Task<User> ResolveUserAsync(
+        string subject, string email, string? name, bool emailVerified, CancellationToken ct)
     {
         var displayName = name ?? email;
 
@@ -50,23 +51,29 @@ public sealed class GoogleAuthService(
             return bySub;
         }
 
-        var byEmail = await db.Users.FirstOrDefaultAsync(u => u.Email == email, ct);
-        if (byEmail is not null)
+        // Email-based linking trusts the address to identify a pre-existing account, so it must
+        // only run when Google asserts the email is verified — otherwise an unverified-email token
+        // could hijack another user's account or claim the legacy owner row.
+        if (emailVerified)
         {
-            byEmail.GoogleSub = subject;
-            await db.SaveChangesAsync(ct);
-            return byEmail;
-        }
+            var byEmail = await db.Users.FirstOrDefaultAsync(u => u.Email == email, ct);
+            if (byEmail is not null)
+            {
+                byEmail.GoogleSub = subject;
+                await db.SaveChangesAsync(ct);
+                return byEmail;
+            }
 
-        var legacyOwner = await db.Users.FirstOrDefaultAsync(
-            u => u.GoogleSub == null && u.Email == LegacyOwnerEmail, ct);
-        if (legacyOwner is not null)
-        {
-            legacyOwner.GoogleSub = subject;
-            legacyOwner.Email = email;
-            legacyOwner.DisplayName = displayName;
-            await db.SaveChangesAsync(ct);
-            return legacyOwner;
+            var legacyOwner = await db.Users.FirstOrDefaultAsync(
+                u => u.GoogleSub == null && u.Email == LegacyOwnerEmail, ct);
+            if (legacyOwner is not null)
+            {
+                legacyOwner.GoogleSub = subject;
+                legacyOwner.Email = email;
+                legacyOwner.DisplayName = displayName;
+                await db.SaveChangesAsync(ct);
+                return legacyOwner;
+            }
         }
 
         var created = new User
