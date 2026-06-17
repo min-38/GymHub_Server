@@ -65,9 +65,26 @@ public sealed partial class StatsService(GymHubDbContext db)
         return new FatigueResponse(from, today, items);
     }
 
-    /// <summary>This week vs last week, compared weekday by weekday (volume/sets/reps) plus totals.</summary>
-    public async Task<WeeklyTrendResponse> GetWeeklyTrendAsync(int userId, DateOnly today, CancellationToken ct)
+    /// <summary>
+    /// Trend comparison. period "week" (default): this week vs last week, weekday by weekday
+    /// (volume/sets/reps) plus totals. period "month": this month vs last month totals only
+    /// (no per-day buckets — a plain previous-month comparison).
+    /// </summary>
+    public async Task<WeeklyTrendResponse> GetWeeklyTrendAsync(
+        int userId, DateOnly today, string period, CancellationToken ct)
     {
+        if (string.Equals(period, "month", StringComparison.OrdinalIgnoreCase))
+        {
+            var (curStart, curEnd) = MonthRange(today, 0);
+            var (prevStart, prevEnd) = MonthRange(today, -1);
+
+            var monthRows = await LoadRowsAsync(userId, prevStart, curEnd, ct);
+            var thisMonth = Totals(monthRows.Where(r => r.Date >= curStart && r.Date <= curEnd));
+            var lastMonth = Totals(monthRows.Where(r => r.Date >= prevStart && r.Date <= prevEnd));
+
+            return new WeeklyTrendResponse(curStart, prevStart, [], thisMonth, lastMonth);
+        }
+
         var (thisStart, thisEnd) = WeekRange(today, 0);
         var (lastStart, _) = WeekRange(today, -1);
 
