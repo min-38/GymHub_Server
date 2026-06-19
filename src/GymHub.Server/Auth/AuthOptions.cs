@@ -14,6 +14,12 @@ public sealed class AuthOptions
     public string JwtAudience { get; init; } = "gymhub-app";
 
     public int JwtLifetimeHours { get; init; } = 720;
+
+    /// <summary>
+    /// Dev/test only. When true, <c>POST /auth/dev-login</c> issues a token for the
+    /// legacy owner account without Google. MUST stay false in production.
+    /// </summary>
+    public bool AllowDevLogin { get; init; }
 }
 
 public sealed class OAuthOptions

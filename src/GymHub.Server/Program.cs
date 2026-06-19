@@ -77,7 +77,12 @@ if (Encoding.UTF8.GetByteCount(authOptions.JwtKey) < 32)
         "Auth:JwtKey must be configured with at least 32 bytes (256 bits) for HS256 token signing.");
 }
 
-app.UseHttpsRedirection();
+// 리버스 프록시(Caddy 등)가 TLS 를 종료하거나 평문 HTTP 로 테스트할 때는 끈다.
+// 직접 HTTPS 를 서빙할 때만 Server:EnableHttpsRedirection=true 로 켠다.
+if (app.Configuration.GetValue("Server:EnableHttpsRedirection", false))
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAuthentication();
 app.UseAuthorization();

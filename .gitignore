@@ -629,3 +629,5 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,git,csharp,aspnetcore,dotnetcore,macos,windows,linux
+# 로컬 배포 비밀값
+.env

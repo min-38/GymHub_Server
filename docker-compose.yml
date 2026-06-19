@@ -1,0 +1,24 @@
+# GymHub 서버 배포용 compose. 비밀값은 같은 폴더의 .env 에서 주입한다(.env.example 참고).
+# 사용:
+#   docker compose run --rm server dotnet GymHub.Server.dll --migrate   # 최초 1회(스키마 적용)
+#   docker compose up -d --build                                        # 상시 실행
+services:
+  server:
+    build: .
+    image: gymhub-server:latest
+    container_name: gymhub-server
+    restart: unless-stopped
+    ports:
+      - "5195:8080" # 호스트 5195 → 컨테이너 8080. 평문 HTTP(프록시/테스트용).
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      # Neon 전체 연결 문자열(Host=...;Database=...;Username=...;Password=...).
+      ConnectionStrings__Default: "${NEON_CONNECTION_STRING}"
+      # JWT 서명 키. 최소 32바이트 이상이어야 서버가 부팅된다.
+      Auth__JwtKey: "${JWT_KEY}"
+      # 테스트 모드: true 면 /auth/dev-login 으로 Google 없이 접속 가능. 운영에선 false.
+      Auth__AllowDevLogin: "${ALLOW_DEV_LOGIN:-false}"
+      # 실제 Google 로그인 테스트 시에만 필요(dev-login 만 쓸 땐 비워도 됨).
+      Auth__OAuth__Google__ClientId: "${GOOGLE_CLIENT_ID:-}"
+      # 앞단 프록시가 TLS 를 종료하므로 앱 내부 HTTPS 리다이렉트는 끈다.
+      Server__EnableHttpsRedirection: "false"
