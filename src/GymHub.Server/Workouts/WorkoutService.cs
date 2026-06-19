@@ -56,7 +56,26 @@ public sealed class WorkoutService(GymHubDbContext db)
         var session = new WorkoutSession { UserId = userId, Date = date };
         db.WorkoutSessions.Add(session);
         await db.SaveChangesAsync(ct);
-        return new WorkoutSessionDto(session.Id, session.Date, session.Note, session.DurationSec);
+        return new WorkoutSessionDto(session.Id, session.Date, session.Note, session.DurationSec, session.Status, session.CompletedAt);
+    }
+
+    /// <summary>
+    /// Marks the session completed: sets status, records the completion time, and stores the
+    /// measured duration. Returns the updated session, or null if not found/owned.
+    /// </summary>
+    public async Task<WorkoutSessionDto?> CompleteSessionAsync(int userId, int sessionId, int durationSec, CancellationToken ct)
+    {
+        var session = await db.WorkoutSessions.FirstOrDefaultAsync(s => s.Id == sessionId && s.UserId == userId, ct);
+        if (session is null)
+        {
+            return null;
+        }
+
+        session.Status = "completed";
+        session.CompletedAt = DateTimeOffset.UtcNow;
+        session.DurationSec = durationSec;
+        await db.SaveChangesAsync(ct);
+        return new WorkoutSessionDto(session.Id, session.Date, session.Note, session.DurationSec, session.Status, session.CompletedAt);
     }
 
     /// <summary>Updates the session's note and/or measured duration. Returns false if not found/owned.</summary>
@@ -239,6 +258,22 @@ public sealed class WorkoutService(GymHubDbContext db)
             return null;
         }
 
+        // 직전 세트 값 복사: 명시값이 없으면(0/0) 같은 종목의 마지막 세트 무게/횟수를 기본값으로 가져온다.
+        if (weight == 0 && reps == 0)
+        {
+            var last = await db.WorkoutSets
+                .AsNoTracking()
+                .Where(s => s.EntryId == entryId)
+                .OrderByDescending(s => s.SetNumber)
+                .Select(s => new { s.Weight, s.Reps })
+                .FirstOrDefaultAsync(ct);
+            if (last is not null)
+            {
+                weight = last.Weight;
+                reps = last.Reps;
+            }
+        }
+
         var set = await AddSetEntityAsync(entryId, weight, reps, ct);
         return ProjectSetDto(set);
     }
@@ -393,7 +428,7 @@ public sealed class WorkoutService(GymHubDbContext db)
     }
 
     private static readonly System.Linq.Expressions.Expression<Func<WorkoutSession, WorkoutSessionDto>> ProjectSession =
-        s => new WorkoutSessionDto(s.Id, s.Date, s.Note, s.DurationSec);
+        s => new WorkoutSessionDto(s.Id, s.Date, s.Note, s.DurationSec, s.Status, s.CompletedAt);
 
     private static readonly System.Linq.Expressions.Expression<Func<WorkoutSet, WorkoutSetDto>> ProjectSetExpr =
         s => new WorkoutSetDto(s.Id, s.EntryId, s.SetNumber, s.Weight, s.Reps, s.Completed);
@@ -402,7 +437,7 @@ public sealed class WorkoutService(GymHubDbContext db)
         new(s.Id, s.EntryId, s.SetNumber, s.Weight, s.Reps, s.Completed);
 }
 
-public sealed record WorkoutSessionDto(int Id, DateOnly Date, string? Note, int DurationSec);
+public sealed record WorkoutSessionDto(int Id, DateOnly Date, string? Note, int DurationSec, string Status, DateTimeOffset? CompletedAt);
 
 public sealed record WorkoutEntryDto(
     int Id,

@@ -37,6 +37,14 @@ public sealed class WorkoutsController(WorkoutService workouts) : ControllerBase
     public async Task<IActionResult> UpdateSession(int id, [FromBody] UpdateSessionRequest request, CancellationToken ct) =>
         await workouts.UpdateSessionAsync(UserId, id, request.Note, request.DurationSec, ct) ? NoContent() : NotFound();
 
+    /// <summary>세션을 완료 처리한다. status=completed, 완료 시각·측정된 운동 시간을 저장.</summary>
+    [HttpPost("sessions/{id}/complete")]
+    public async Task<ActionResult<WorkoutSessionDto>> CompleteSession(int id, [FromBody] CompleteSessionRequest request, CancellationToken ct)
+    {
+        var session = await workouts.CompleteSessionAsync(UserId, id, request.DurationSec, ct);
+        return session is null ? NotFound() : Ok(session);
+    }
+
     /// <summary>세션을 삭제한다 (종목/세트는 cascade로 함께 삭제).</summary>
     [HttpDelete("sessions/{id}")]
     public async Task<IActionResult> DeleteSession(int id, CancellationToken ct) =>
@@ -120,6 +128,8 @@ public sealed class WorkoutsController(WorkoutService workouts) : ControllerBase
 public sealed record EnsureSessionRequest(DateOnly Date);
 
 public sealed record UpdateSessionRequest(string? Note, int? DurationSec);
+
+public sealed record CompleteSessionRequest(int DurationSec);
 
 public sealed record AddExerciseRequest(string ExerciseId, string ExerciseName, string Target);
 

@@ -79,6 +79,8 @@ public sealed class GymHubDbContext(DbContextOptions<GymHubDbContext> options) :
             entity.Property(e => e.Date).HasColumnName("date").HasColumnType("date");
             entity.Property(e => e.Note).HasColumnName("note");
             entity.Property(e => e.DurationSec).HasColumnName("duration_sec").HasDefaultValue(0);
+            entity.Property(e => e.Status).HasColumnName("status").HasDefaultValue("in_progress").IsRequired();
+            entity.Property(e => e.CompletedAt).HasColumnName("completed_at");
             entity.HasOne<User>().WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => new { e.UserId, e.Date }).IsUnique().HasDatabaseName("idx_sessions_user_date");
         });
@@ -259,6 +261,12 @@ public sealed class WorkoutSession
     public DateOnly Date { get; set; }
     public string? Note { get; set; }
     public int DurationSec { get; set; }
+
+    /// <summary>'in_progress' | 'completed'. 완료 처리 시 'completed'로 전환된다.</summary>
+    public string Status { get; set; } = "in_progress";
+
+    /// <summary>완료 처리된 시각. 미완료면 null.</summary>
+    public DateTimeOffset? CompletedAt { get; set; }
     public List<WorkoutEntry> Entries { get; } = [];
 }
 

@@ -15,12 +15,13 @@ public sealed class GymHubMigrationsTests
 
         var migrations = context.Database.GetMigrations().ToList();
 
-        Assert.Equal(5, migrations.Count);
+        Assert.Equal(6, migrations.Count);
         Assert.EndsWith("InitialCreate", migrations[0]);
         Assert.EndsWith("AddUsersAndUserScoping", migrations[1]);
         Assert.EndsWith("AddProfiles", migrations[2]);
         Assert.EndsWith("AddEntryRestSec", migrations[3]);
         Assert.EndsWith("AddEntrySupersetGroup", migrations[4]);
+        Assert.EndsWith("AddSessionStatusAndCompletedAt", migrations[5]);
     }
 
     [Fact]

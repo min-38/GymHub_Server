@@ -384,6 +384,62 @@ public sealed class WorkoutServiceTests
         Assert.Null(noExclude);
     }
 
+    [Fact]
+    public async Task AddSetWithoutValuesCopiesLastSetWeightAndReps()
+    {
+        await using var db = NewDb();
+        db.WorkoutSessions.Add(new WorkoutSession { Id = 1, UserId = UserId, Date = new DateOnly(2026, 6, 1) });
+        db.WorkoutEntries.Add(new WorkoutEntry { Id = 1, SessionId = 1, ExerciseId = "ex1", ExerciseName = "Bench", Target = "chest", OrderIndex = 0 });
+        db.WorkoutSets.Add(new WorkoutSet { Id = 1, EntryId = 1, SetNumber = 1, Weight = 60, Reps = 10 });
+        await db.SaveChangesAsync();
+        var service = new WorkoutService(db);
+
+        var set = await service.AddSetAsync(UserId, 1, 0, 0, default);
+
+        Assert.NotNull(set);
+        Assert.Equal(2, set!.SetNumber);
+        Assert.Equal(60, set.Weight);
+        Assert.Equal(10, set.Reps);
+    }
+
+    [Fact]
+    public async Task AddSetWithoutValuesAndNoPriorSetUsesZero()
+    {
+        await using var db = NewDb();
+        db.WorkoutSessions.Add(new WorkoutSession { Id = 1, UserId = UserId, Date = new DateOnly(2026, 6, 1) });
+        db.WorkoutEntries.Add(new WorkoutEntry { Id = 1, SessionId = 1, ExerciseId = "ex1", ExerciseName = "Bench", Target = "chest", OrderIndex = 0 });
+        await db.SaveChangesAsync();
+        var service = new WorkoutService(db);
+
+        var set = await service.AddSetAsync(UserId, 1, 0, 0, default);
+
+        Assert.NotNull(set);
+        Assert.Equal(1, set!.SetNumber);
+        Assert.Equal(0, set.Weight);
+        Assert.Equal(0, set.Reps);
+    }
+
+    [Fact]
+    public async Task CompleteSessionSetsStatusDurationAndTimeAndRespectsOwnership()
+    {
+        await using var db = NewDb();
+        db.WorkoutSessions.Add(new WorkoutSession { Id = 1, UserId = UserId, Date = new DateOnly(2026, 6, 1) });
+        await db.SaveChangesAsync();
+        var service = new WorkoutService(db);
+
+        Assert.Null(await service.CompleteSessionAsync(OtherUserId, 1, 1800, default));
+
+        var dto = await service.CompleteSessionAsync(UserId, 1, 1800, default);
+        Assert.NotNull(dto);
+        Assert.Equal("completed", dto!.Status);
+        Assert.Equal(1800, dto.DurationSec);
+        Assert.NotNull(dto.CompletedAt);
+
+        var session = await db.WorkoutSessions.FindAsync(1);
+        Assert.Equal("completed", session!.Status);
+        Assert.NotNull(session.CompletedAt);
+    }
+
     private static GymHubDbContext NewDb() =>
         new(new DbContextOptionsBuilder<GymHubDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
